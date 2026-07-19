@@ -1,6 +1,7 @@
 package com.dayo.careround.wardservice.data.models;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalTime;
@@ -16,6 +17,7 @@ public class ShiftDefinition {
     private UUID id;
 
     @Column(nullable = false, unique = true)
+    @NotBlank
     private String name;
 
     @Column(nullable = false)
