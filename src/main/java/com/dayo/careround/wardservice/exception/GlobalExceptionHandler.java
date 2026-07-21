@@ -41,6 +41,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidStaffingRequirementException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidStaffingRequirement(InvalidStaffingRequirementException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(HandoverNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleHandoverNotFound(HandoverNotFoundException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
