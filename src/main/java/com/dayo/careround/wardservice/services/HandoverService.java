@@ -2,9 +2,14 @@ package com.dayo.careround.wardservice.services;
 
 import com.dayo.careround.wardservice.data.models.Handover;
 import com.dayo.careround.wardservice.data.models.HandoverNote;
+import com.dayo.careround.wardservice.data.models.ShiftDefinition;
 import com.dayo.careround.wardservice.data.models.enums.HandoverStatus;
+import com.dayo.careround.wardservice.data.models.enums.HandoverUrgency;
 import com.dayo.careround.wardservice.data.repositories.HandoverNoteRepository;
 import com.dayo.careround.wardservice.data.repositories.HandoverRepository;
+import com.dayo.careround.wardservice.dto.request.InitiateHandoverRequest;
+import com.dayo.careround.wardservice.dto.response.HandoverResponse;
+import com.dayo.careround.wardservice.exception.HandoverNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +23,7 @@ public class HandoverService {
 
     private final HandoverRepository handoverRepository;
     private final HandoverNoteRepository handoverNoteRepository;
+    private final ShiftResolutionService shiftResolutionService;
 
     public boolean isSupervisionHandedOver(UUID wardId, UUID outgoingChargeNurseId) {
         return handoverRepository
@@ -26,21 +32,23 @@ public class HandoverService {
     }
 
     @Transactional
-    public Handover initiate(UUID wardId, UUID outgoingShiftId, UUID incomingShiftId,
-                             UUID outgoingChargeNurseId, UUID incomingChargeNurseId) {
+    public HandoverResponse initiate(UUID wardId, UUID outgoingChargeNurseId, InitiateHandoverRequest request) {
+        ShiftDefinition currentShift = shiftResolutionService.resolveCurrentShift();
+
         Handover handover = new Handover();
         handover.setWardId(wardId);
-        // outgoingShift/incomingShift set via repository lookups in the real service —
-        // simplified here, wire in ShiftDefinitionRepository when building the controller layer
+        handover.setOutgoingShift(currentShift);
+        handover.setIncomingShift(currentShift); // simplification: same definition, next occurrence
         handover.setOutgoingChargeNurseId(outgoingChargeNurseId);
-        handover.setIncomingChargeNurseId(incomingChargeNurseId);
+        handover.setIncomingChargeNurseId(request.incomingChargeNurseId());
         handover.setStatus(HandoverStatus.PENDING);
+
         handoverRepository.save(handover);
-        return handover;
+        return toResponse(handover);
     }
 
     @Transactional
-    public void addNote(UUID handoverId, UUID patientId, String note, com.dayo.careround.wardservice.data.models.enums.HandoverUrgency urgency) {
+    public void addNote(UUID handoverId, UUID patientId, String note, HandoverUrgency urgency) {
         HandoverNote handoverNote = new HandoverNote();
         handoverNote.setHandoverId(handoverId);
         handoverNote.setPatientId(patientId);
@@ -52,9 +60,21 @@ public class HandoverService {
     @Transactional
     public void signOff(UUID handoverId) {
         Handover handover = handoverRepository.findById(handoverId)
-                .orElseThrow(() -> new IllegalStateException("Handover not found"));
+                .orElseThrow(() -> new HandoverNotFoundException("No handover with that id"));
         handover.setStatus(HandoverStatus.HANDED_OVER);
         handover.setSignedOffAt(Instant.now());
         handoverRepository.save(handover);
+    }
+
+    private HandoverResponse toResponse(Handover handover) {
+        return new HandoverResponse(
+                handover.getPublicId(),
+                handover.getWardId(),
+                handover.getOutgoingChargeNurseId(),
+                handover.getIncomingChargeNurseId(),
+                handover.getStatus(),
+                handover.getInitiatedAt(),
+                handover.getSignedOffAt()
+        );
     }
 }
