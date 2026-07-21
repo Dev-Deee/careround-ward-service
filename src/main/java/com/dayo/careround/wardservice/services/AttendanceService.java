@@ -1,10 +1,13 @@
 package com.dayo.careround.wardservice.services;
 
 import com.dayo.careround.wardservice.data.models.Attendance;
+import com.dayo.careround.wardservice.data.models.ShiftDefinition;
 import com.dayo.careround.wardservice.data.models.enums.AttendanceStatus;
 import com.dayo.careround.wardservice.data.models.enums.ChargeAssignmentStatus;
 import com.dayo.careround.wardservice.data.repositories.AttendanceRepository;
 import com.dayo.careround.wardservice.data.repositories.ChargeAssignmentRepository;
+import com.dayo.careround.wardservice.dto.request.ClockInRequest;
+import com.dayo.careround.wardservice.dto.response.AttendanceResponse;
 import com.dayo.careround.wardservice.exception.ClockOutBlockedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,7 +25,31 @@ public class AttendanceService {
     private final ChargeAssignmentRepository chargeAssignmentRepository;
     private final HandoverService handoverService;
     private final AuditLogService auditLogService;
+    private final ShiftResolutionService shiftResolutionService;
 
+    @Transactional
+    public AttendanceResponse clockIn(UUID staffId, ClockInRequest request) {
+        ShiftDefinition currentShift = shiftResolutionService.resolveCurrentShift();
+
+        Attendance attendance = new Attendance();
+        attendance.setStaffId(staffId);
+        attendance.setStaffRole(request.staffRole());
+        attendance.setWardId(request.wardId());
+        attendance.setShift(currentShift);
+        attendance.setClockInAt(Instant.now());
+        attendance.setStatus(AttendanceStatus.CLOCKED_IN);
+
+        attendanceRepository.save(attendance);
+        return toResponse(attendance);
+    }
+
+    private AttendanceResponse toResponse(Attendance attendance) {
+        return new AttendanceResponse(
+                attendance.getId(), attendance.getStaffId(), attendance.getWardId(),
+                attendance.getShift().getName(), attendance.getClockInAt(),
+                attendance.getClockOutAt(), attendance.getStatus()
+        );
+    }
 
     @Transactional
     public void clockOut(UUID staffId, boolean overrideAuthorized, UUID overriddenBy) {
