@@ -67,6 +67,16 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(SuccessionWindowNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleSuccessionWindowNotFound(SuccessionWindowNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(NoEligibleNurseException.class)
+    public ResponseEntity<Map<String, Object>> handleNoEligibleNurse(NoEligibleNurseException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "status", status.value(),
