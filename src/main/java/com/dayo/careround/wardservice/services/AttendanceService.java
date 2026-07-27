@@ -8,6 +8,7 @@ import com.dayo.careround.wardservice.data.repositories.AttendanceRepository;
 import com.dayo.careround.wardservice.data.repositories.ChargeAssignmentRepository;
 import com.dayo.careround.wardservice.dto.request.ClockInRequest;
 import com.dayo.careround.wardservice.dto.response.AttendanceResponse;
+import com.dayo.careround.wardservice.exception.AlreadyClockedInException;
 import com.dayo.careround.wardservice.exception.ClockOutBlockedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,10 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceResponse clockIn(UUID staffId, ClockInRequest request) {
+        if (attendanceRepository.findByStaffIdAndStatus(staffId, AttendanceStatus.CLOCKED_IN).isPresent()) {
+            throw new AlreadyClockedInException("This staff member is already clocked in");
+        }
+
         ShiftDefinition currentShift = shiftResolutionService.resolveCurrentShift();
 
         Attendance attendance = new Attendance();
