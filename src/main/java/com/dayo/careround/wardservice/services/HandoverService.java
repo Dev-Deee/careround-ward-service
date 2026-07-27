@@ -48,24 +48,25 @@ public class HandoverService {
     }
 
     @Transactional
-    public void addNote(UUID handoverId, UUID patientId, String note, HandoverUrgency urgency) {
+    public void addNote(UUID handoverPublicId, UUID patientId, String note, HandoverUrgency urgency) {
+        Handover handover = handoverRepository.findByPublicId(handoverPublicId)
+                .orElseThrow(() -> new HandoverNotFoundException("No handover with that id"));
+
         HandoverNote handoverNote = new HandoverNote();
-        handoverNote.setHandoverId(handoverId);
+        handoverNote.setHandoverId(handover.getId());
         handoverNote.setPatientId(patientId);
         handoverNote.setNote(note);
         handoverNote.setUrgency(urgency);
         handoverNoteRepository.save(handoverNote);
     }
 
-    @Transactional
-    public void signOff(UUID handoverId) {
-        Handover handover = handoverRepository.findById(handoverId)
+    public void signOff(UUID handoverPublicId) {
+        Handover handover = handoverRepository.findByPublicId(handoverPublicId)
                 .orElseThrow(() -> new HandoverNotFoundException("No handover with that id"));
         handover.setStatus(HandoverStatus.HANDED_OVER);
         handover.setSignedOffAt(Instant.now());
         handoverRepository.save(handover);
     }
-
     private HandoverResponse toResponse(Handover handover) {
         return new HandoverResponse(
                 handover.getPublicId(),
