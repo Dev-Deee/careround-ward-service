@@ -48,6 +48,7 @@ public class ChargeAssignmentService {
         return toResponse(assignment);
     }
 
+    @Transactional
     public ChargeAssignmentResponse getActiveForWard(UUID wardId) {
         ChargeAssignment assignment = chargeAssignmentRepository
                 .findByWardIdAndStatus(wardId, ChargeAssignmentStatus.ACTIVE)
