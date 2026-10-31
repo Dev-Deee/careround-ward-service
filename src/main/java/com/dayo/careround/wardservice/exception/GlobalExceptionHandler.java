@@ -35,6 +35,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, errors);
     }
 
+    @ExceptionHandler(NoActiveAttendanceException.class)
+    public ResponseEntity<Map<String, Object>> handleNoActiveAttendance(NoActiveAttendanceException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(AlreadyClockedInException.class)
     public ResponseEntity<Map<String, Object>> handleAlreadyClockedIn(AlreadyClockedInException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());

@@ -10,6 +10,10 @@ import com.dayo.careround.wardservice.dto.request.ClockInRequest;
 import com.dayo.careround.wardservice.dto.response.AttendanceResponse;
 import com.dayo.careround.wardservice.exception.AlreadyClockedInException;
 import com.dayo.careround.wardservice.exception.ClockOutBlockedException;
+import com.dayo.careround.wardservice.data.models.enums.StaffingRole;
+import com.dayo.careround.wardservice.exception.NoActiveAttendanceException;
+import com.dayo.careround.wardservice.security.CareRoundPrincipal;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +33,19 @@ public class AttendanceService {
     private final ShiftResolutionService shiftResolutionService;
 
     @Transactional
-    public AttendanceResponse clockIn(UUID staffId, ClockInRequest request) {
+    public AttendanceResponse clockIn(CareRoundPrincipal caller, ClockInRequest request) {
+        StaffingRole role = clinicalRole(caller);
+        UUID wardId = caller.assignedWardId();
+        if (wardId == null) {
+            throw new AccessDeniedException("You have no assigned ward to clock in to");
+        }
+        if (request != null && request.wardId() != null && !request.wardId().equals(wardId)) {
+            throw new AccessDeniedException("You may only clock in to your assigned ward");
+        }
+        if (request != null && request.staffRole() != null && request.staffRole() != role) {
+            throw new AccessDeniedException("staffRole must match your role (" + role + ")");
+        }
+        UUID staffId = caller.userId();
         if (attendanceRepository.findByStaffIdAndStatus(staffId, AttendanceStatus.CLOCKED_IN).isPresent()) {
             throw new AlreadyClockedInException("This staff member is already clocked in");
         }
@@ -38,8 +54,8 @@ public class AttendanceService {
 
         Attendance attendance = new Attendance();
         attendance.setStaffId(staffId);
-        attendance.setStaffRole(request.staffRole());
-        attendance.setWardId(request.wardId());
+        attendance.setStaffRole(role);
+        attendance.setWardId(wardId);
         attendance.setShift(currentShift);
         attendance.setClockInAt(Instant.now());
         attendance.setStatus(AttendanceStatus.CLOCKED_IN);
@@ -60,7 +76,7 @@ public class AttendanceService {
     public void clockOut(UUID staffId, boolean overrideAuthorized, UUID overriddenBy) {
         Attendance attendance = attendanceRepository
                 .findByStaffIdAndStatus(staffId, AttendanceStatus.CLOCKED_IN)
-                .orElseThrow(() -> new IllegalStateException("No active clock-in found for this staff member"));
+                .orElseThrow(() -> new NoActiveAttendanceException("You have no active clock-in"));
 
         boolean isChargeNurse = chargeAssignmentRepository
                 .findByWardIdAndStatus(attendance.getWardId(), ChargeAssignmentStatus.ACTIVE)
@@ -96,5 +112,14 @@ public class AttendanceService {
                     "Clock-out authorized despite coverage/handover gate"
             );
         }
+    }
+
+    // Only clinical staff clock in; ADMIN is not a ward staffing actor.
+    private static StaffingRole clinicalRole(CareRoundPrincipal caller) {
+        return switch (caller.role()) {
+            case "NURSE" -> StaffingRole.NURSE;
+            case "DOCTOR" -> StaffingRole.DOCTOR;
+            default -> throw new AccessDeniedException("Only nurses and doctors clock in");
+        };
     }
 }
