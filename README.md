@@ -10,6 +10,15 @@ Wards, shifts, attendance, charge nurses and handovers. HTTP 8083, gRPC 9093, DB
 - **Scheduled:** `ChargeSuccessionScheduler` (fills a vacant charge role when its window closes).
 - The ward id used across services is the ward's **publicId**.
 
+## Errors
+
+Every error uses the body `{"status", "error", "message", "timestamp"}`.
+
+- A path no endpoint maps (e.g. a collection root with a trailing slash, or a wrong sub-path) → **404**
+  `No endpoint <METHOD> <path>`. A wrong HTTP method on a mapped path → 405, unsupported content type → 415,
+  malformed JSON → 400.
+- Anything unexpected → 500 with a generic message; the exception is logged at ERROR with its stack trace.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` (gitignored) and fill in real values. `main()` loads `.env` into system properties;
