@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +24,7 @@ public class HandoverController {
     private final HandoverService handoverService;
 
     @PostMapping
+    @PreAuthorize("hasRole('NURSE')")
     public ResponseEntity<HandoverResponse> initiate(
             @Valid @RequestBody InitiateHandoverRequest request,
             @AuthenticationPrincipal CareRoundPrincipal principal) {
@@ -31,16 +33,20 @@ public class HandoverController {
     }
 
     @PostMapping("/{handoverId}/notes")
+    @PreAuthorize("hasRole('NURSE')")
     public ResponseEntity<Void> addNote(
             @PathVariable UUID handoverId,
-            @Valid @RequestBody AddHandoverNoteRequest request) {
-        handoverService.addNote(handoverId, request.patientId(), request.note(), request.urgency());
+            @Valid @RequestBody AddHandoverNoteRequest request,
+            @AuthenticationPrincipal CareRoundPrincipal principal) {
+        handoverService.addNote(handoverId, principal.userId(), request.patientId(), request.note(), request.urgency());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/{handoverId}/sign-off")
-    public ResponseEntity<Void> signOff(@PathVariable UUID handoverId) {
-        handoverService.signOff(handoverId);
+    @PreAuthorize("hasRole('NURSE')")
+    public ResponseEntity<Void> signOff(@PathVariable UUID handoverId,
+                                        @AuthenticationPrincipal CareRoundPrincipal principal) {
+        handoverService.signOff(handoverId, principal.userId());
         return ResponseEntity.noContent().build();
     }
 }
