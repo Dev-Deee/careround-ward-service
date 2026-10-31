@@ -7,6 +7,10 @@ import com.dayo.careround.wardservice.dto.response.HandoverResponse;
 import com.dayo.careround.wardservice.security.CareRoundPrincipal;
 import com.dayo.careround.wardservice.services.HandoverService;
 import jakarta.validation.Valid;
+import com.dayo.careround.wardservice.data.models.enums.HandoverStatus;
+import com.dayo.careround.wardservice.dto.response.HandoverDetailResponse;
+import com.dayo.careround.wardservice.dto.response.PageResponse;
+import com.dayo.careround.wardservice.services.WardReadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +26,26 @@ import java.util.UUID;
 public class HandoverController {
 
     private final HandoverService handoverService;
+    private final WardReadService wardReadService;
+
+    // A ward's handovers, newest first: ADMIN or the ward's active charge nurse.
+    @GetMapping
+    public ResponseEntity<PageResponse<HandoverResponse>> list(
+            @RequestParam UUID wardId,
+            @RequestParam(required = false) HandoverStatus status,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @AuthenticationPrincipal CareRoundPrincipal principal) {
+        return ResponseEntity.ok(wardReadService.handovers(principal, wardId, status, page, size));
+    }
+
+    // One handover with its patient notes (URGENT first): the two nurses named on it, the ward's charge nurse, or ADMIN.
+    @GetMapping("/{handoverId}")
+    public ResponseEntity<HandoverDetailResponse> get(
+            @PathVariable UUID handoverId,
+            @AuthenticationPrincipal CareRoundPrincipal principal) {
+        return ResponseEntity.ok(wardReadService.handover(principal, handoverId));
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('NURSE')")

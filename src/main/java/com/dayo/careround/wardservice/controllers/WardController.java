@@ -4,6 +4,7 @@ import com.dayo.careround.wardservice.dto.request.CreateWardRequest;
 import com.dayo.careround.wardservice.dto.response.WardResponse;
 import com.dayo.careround.wardservice.services.WardService;
 import jakarta.validation.Valid;
+import com.dayo.careround.wardservice.services.WardReadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class WardController {
 
     private final WardService wardService;
+    private final WardReadService wardReadService;
 
     // Hospital configuration: admin with MANAGE_SYSTEM_CONFIG.
     @PostMapping
@@ -32,8 +34,12 @@ public class WardController {
         return ResponseEntity.ok(wardService.getByPublicId(publicId));
     }
 
+    // With page or size: {items, page, size, total}, sorted by name. Without either: the legacy bare array
+    // (deprecated; kept for existing callers).
     @GetMapping
-    public ResponseEntity<List<WardResponse>> getAll() {
-        return ResponseEntity.ok(wardService.getAll());
+    public ResponseEntity<?> getAll(@RequestParam(required = false) Integer page,
+                                    @RequestParam(required = false) Integer size) {
+        if (page == null && size == null) return ResponseEntity.ok(wardService.getAll());
+        return ResponseEntity.ok(wardReadService.wards(page, size));
     }
 }
