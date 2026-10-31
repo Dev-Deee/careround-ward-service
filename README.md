@@ -10,6 +10,28 @@ Wards, shifts, attendance, charge nurses and handovers. HTTP 8083, gRPC 9093, DB
 - **Scheduled:** `ChargeSuccessionScheduler` (fills a vacant charge role when its window closes).
 - The ward id used across services is the ward's **publicId**.
 
+## Read side
+
+Paged lists use `page` (0-based) and `size` (default 20, max 100; larger is clamped) and return
+`{items, page, size, total}`.
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /api/v1/attendance?wardId&status&role&page&size` | ADMIN, or the ward's active charge nurse | `status` `CLOCKED_IN`/`CLOCKED_OUT`, `role` `NURSE`/`DOCTOR`, both optional. Newest `clockInAt` first. Items add `staffRole`. |
+| `GET /api/v1/handovers?wardId&status&page&size` | ADMIN, or the ward's active charge nurse | `status` `PENDING`/`HANDED_OVER`. Newest `initiatedAt` first. |
+| `GET /api/v1/handovers/{publicId}` | the outgoing/incoming nurse named on it, the ward's active charge nurse, or ADMIN | Handover plus shift names and `notes [{id, patientId, note, urgency}]`, URGENT → WATCH → ROUTINE. |
+| `GET /api/v1/wards?page&size` | any authenticated | With `page` or `size`: the envelope, sorted by name (the database's `en_US` collation, which ignores spaces at the first level). Without either: the old bare array (**deprecated**, kept for existing callers). |
+
+Unknown ward → 404; a non-supervisor → 403; missing `wardId` or a bad enum → 400.
+
+**PRD path → built path.**
+
+| PRD | Built |
+|---|---|
+| `GET /wards/{wardId}/handover` (shift handover view) | `GET /api/v1/handovers?wardId=` + `GET /api/v1/handovers/{publicId}` |
+| `GET /admin/wards`, `GET /admin/wards/{id}` | `GET /api/v1/wards?page=&size=`, `GET /api/v1/wards/{publicId}` |
+| — (who is on duty) | `GET /api/v1/attendance?wardId=&status=CLOCKED_IN` |
+
 ## Errors
 
 Every error uses the body `{"status", "error", "message", "timestamp"}`.
