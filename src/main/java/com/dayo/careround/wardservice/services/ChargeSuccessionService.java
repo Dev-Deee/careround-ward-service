@@ -69,7 +69,8 @@ public class ChargeSuccessionService {
 
         boolean isClockedIn = attendanceRepository
                 .findByStaffIdAndStatus(claimingNurseId, AttendanceStatus.CLOCKED_IN)
-                .filter(a -> a.getWardId().equals(wardId))
+                .filter(a -> a.getWardId().equals(wardId)
+                        && a.getStaffRole() == com.dayo.careround.wardservice.data.models.enums.StaffingRole.NURSE)
                 .isPresent();
         if (!isClockedIn) {
             throw new NoEligibleNurseException("Only a nurse currently clocked in on this ward may claim charge");

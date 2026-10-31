@@ -11,6 +11,10 @@ import com.dayo.careround.wardservice.dto.request.InitiateHandoverRequest;
 import com.dayo.careround.wardservice.dto.response.HandoverResponse;
 import com.dayo.careround.wardservice.exception.HandoverNotFoundException;
 import jakarta.transaction.Transactional;
+import com.dayo.careround.wardservice.data.models.enums.ChargeAssignmentStatus;
+import com.dayo.careround.wardservice.data.repositories.ChargeAssignmentRepository;
+import com.dayo.careround.wardservice.exception.InvalidHandoverException;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +28,7 @@ public class HandoverService {
     private final HandoverRepository handoverRepository;
     private final HandoverNoteRepository handoverNoteRepository;
     private final ShiftResolutionService shiftResolutionService;
+    private final ChargeAssignmentRepository chargeAssignmentRepository;
 
     public boolean isSupervisionHandedOver(UUID wardId, UUID outgoingChargeNurseId) {
         return handoverRepository
@@ -32,7 +37,14 @@ public class HandoverService {
     }
 
     @Transactional
+    // Only the nurse currently holding charge on the ward hands it over (they become the outgoing charge nurse).
     public HandoverResponse initiate(UUID wardId, UUID outgoingChargeNurseId, InitiateHandoverRequest request) {
+        if (!isActiveChargeHolder(wardId, outgoingChargeNurseId)) {
+            throw new AccessDeniedException("Only the ward's current charge nurse may start a handover");
+        }
+        if (request.incomingChargeNurseId().equals(outgoingChargeNurseId)) {
+            throw new InvalidHandoverException("The incoming charge nurse must be someone else");
+        }
         ShiftDefinition currentShift = shiftResolutionService.resolveCurrentShift();
 
         Handover handover = new Handover();
@@ -48,9 +60,10 @@ public class HandoverService {
     }
 
     @Transactional
-    public void addNote(UUID handoverPublicId, UUID patientId, String note, HandoverUrgency urgency) {
+    public void addNote(UUID handoverPublicId, UUID callerId, UUID patientId, String note, HandoverUrgency urgency) {
         Handover handover = handoverRepository.findByPublicId(handoverPublicId)
                 .orElseThrow(() -> new HandoverNotFoundException("No handover with that id"));
+        requireParticipant(handover, callerId);
 
         HandoverNote handoverNote = new HandoverNote();
         handoverNote.setHandoverId(handover.getId());
@@ -60,13 +73,31 @@ public class HandoverService {
         handoverNoteRepository.save(handoverNote);
     }
 
-    public void signOff(UUID handoverPublicId) {
+    public void signOff(UUID handoverPublicId, UUID callerId) {
         Handover handover = handoverRepository.findByPublicId(handoverPublicId)
                 .orElseThrow(() -> new HandoverNotFoundException("No handover with that id"));
+        requireParticipant(handover, callerId);
+        if (handover.getStatus() == HandoverStatus.HANDED_OVER) {
+            throw new InvalidHandoverException("This handover is already signed off");
+        }
         handover.setStatus(HandoverStatus.HANDED_OVER);
         handover.setSignedOffAt(Instant.now());
         handoverRepository.save(handover);
     }
+    // The outgoing or incoming nurse named on the handover, or whoever holds charge on that ward now.
+    private void requireParticipant(Handover handover, UUID callerId) {
+        boolean named = callerId.equals(handover.getOutgoingChargeNurseId()) || callerId.equals(handover.getIncomingChargeNurseId());
+        if (!named && !isActiveChargeHolder(handover.getWardId(), callerId)) {
+            throw new AccessDeniedException("Only the nurses named on this handover or the ward's charge nurse may change it");
+        }
+    }
+
+    private boolean isActiveChargeHolder(UUID wardId, UUID nurseId) {
+        return chargeAssignmentRepository.findByWardIdAndStatus(wardId, ChargeAssignmentStatus.ACTIVE)
+                .map(ca -> ca.getNurseId().equals(nurseId))
+                .orElse(false);
+    }
+
     private HandoverResponse toResponse(Handover handover) {
         return new HandoverResponse(
                 handover.getPublicId(),
