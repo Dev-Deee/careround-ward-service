@@ -68,7 +68,7 @@ public class AttendanceService {
         return new AttendanceResponse(
                 attendance.getId(), attendance.getStaffId(), attendance.getWardId(),
                 attendance.getShift().getName(), attendance.getClockInAt(),
-                attendance.getClockOutAt(), attendance.getStatus()
+                attendance.getClockOutAt(), attendance.getStatus(), attendance.getStaffRole()
         );
     }
 

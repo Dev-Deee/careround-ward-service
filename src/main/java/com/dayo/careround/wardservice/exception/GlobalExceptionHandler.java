@@ -100,6 +100,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(HandoverNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleHandoverNotFound(HandoverNotFoundException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
