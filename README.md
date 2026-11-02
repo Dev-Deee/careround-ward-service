@@ -5,7 +5,9 @@ Wards, shifts, attendance, charge nurses and handovers. HTTP 8083, gRPC 9093, DB
 - **REST:** `/api/v1/wards`, `/api/v1/shift-definitions`, `/api/v1/staffing-requirements`, `/api/v1/attendance`,
   `/api/v1/charge-assignments`, `/api/v1/charge-succession`, `/api/v1/handovers`.
 - **gRPC server (9093):** `WardVerificationService.WardExists` (by ward `publicId`; used by auth, patient and round to
-  verify ward ids), `ChargeVerificationService.IsActiveChargeNurse`.
+  verify ward ids), `ChargeVerificationService.IsActiveChargeNurse` (round, care-task) and
+  `ChargeVerificationService.GetActiveChargeNurse` (`ward_id` → `{found, nurse_id}`; malformed id → `INVALID_ARGUMENT`;
+  used by notification-service to send medication-overdue alerts to the charge nurse).
 - **gRPC clients:** patient-service (`GetAdmittedCount`, ward census), user-service (`GetMostSeniorNurse`).
 - **Scheduled:** `ChargeSuccessionScheduler` (fills a vacant charge role when its window closes).
 - The ward id used across services is the ward's **publicId**.
