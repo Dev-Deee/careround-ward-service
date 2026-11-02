@@ -2,6 +2,7 @@ package com.dayo.careround.wardservice.grpc;
 
 import com.dayo.careround.wardservice.data.models.enums.ChargeAssignmentStatus;
 import com.dayo.careround.wardservice.data.repositories.ChargeAssignmentRepository;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import net.devh.boot.grpc.server.service.GrpcService;
@@ -25,6 +26,22 @@ public class ChargeVerificationGrpcService extends ChargeVerificationServiceGrpc
                 .orElse(false);
 
         responseObserver.onNext(ChargeVerificationResponse.newBuilder().setIsActiveChargeNurse(isCharge).build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getActiveChargeNurse(ActiveChargeNurseRequest request, StreamObserver<ActiveChargeNurseResponse> responseObserver) {
+        UUID wardId;
+        try {
+            wardId = UUID.fromString(request.getWardId());
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("ward_id is not a UUID").asRuntimeException());
+            return;
+        }
+        ActiveChargeNurseResponse.Builder reply = ActiveChargeNurseResponse.newBuilder().setFound(false);
+        chargeAssignmentRepository.findByWardIdAndStatus(wardId, ChargeAssignmentStatus.ACTIVE)
+                .ifPresent(ca -> reply.setFound(true).setNurseId(ca.getNurseId().toString()));
+        responseObserver.onNext(reply.build());
         responseObserver.onCompleted();
     }
 }
